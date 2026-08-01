@@ -3,6 +3,8 @@
 Parameter-efficient finetuning for Llama 3.2 3B with two parallel low-rank
 control branches per decoder layer and intrinsic-dimension-guided rank allocation.
 
+完整的架構、公式、rank allocator 與輸出說明請見 [DESIGN.md](DESIGN.md)。
+
 ## Design
 
 The pretrained Llama parameters remain frozen. Each decoder layer adds one
