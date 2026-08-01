@@ -112,6 +112,29 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(output.logits.shape, (2, 12, 128))
         self.assertTrue(all(gradient is not None for gradient in gradients))
 
+    def test_attention_accepts_an_optimized_none_mask(self):
+        config = LlamaConfig(
+            vocab_size=128,
+            hidden_size=32,
+            intermediate_size=64,
+            num_hidden_layers=1,
+            num_attention_heads=4,
+            num_key_value_heads=2,
+        )
+        model = wrap_model_with_double_control(
+            LlamaForCausalLM(config), ranks=[8], alphas=[1.0], dropout=0.0
+        )
+        hidden_states = torch.randn(2, 8, 32)
+        position_ids = torch.arange(8).unsqueeze(0)
+        position_embeddings = model.model.rotary_emb(hidden_states, position_ids)
+        output = model.model.layers[0](
+            hidden_states,
+            attention_mask=None,
+            position_ids=position_ids,
+            position_embeddings=position_embeddings,
+        )
+        self.assertEqual(output.shape, hidden_states.shape)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -53,8 +53,9 @@ class DoubleControlDecoderLayer(nn.Module):
             "cache_position": kwargs.get("cache_position"),
             "position_embeddings": kwargs.get("position_embeddings"),
         }
+        required_even_when_none = {"attention_mask", "position_embeddings"}
         for name, value in optional.items():
-            if name in accepted and value is not None:
+            if name in accepted and (value is not None or name in required_even_when_none):
                 call_args[name] = value
         output = attention(**call_args)
         return output[0] if isinstance(output, (tuple, list)) else output
