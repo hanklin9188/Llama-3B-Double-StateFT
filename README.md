@@ -28,11 +28,15 @@ branch**, so Double Control has twice that active budget across its two branches
 ## Setup
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+conda create -n llama python=3.12
+conda activate llama
+python -m pip install -r requirements.txt
 export HF_TOKEN=your_huggingface_token
 ```
+
+Always use `python -m pip` so package installation targets the currently active
+Python environment. If the environment is already prepared, installation can be
+skipped.
 
 Access to `meta-llama/Llama-3.2-3B` must be approved on Hugging Face.
 

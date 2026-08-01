@@ -1,6 +1,6 @@
 accelerate>=0.33,<2
 dadapy>=0.3,<1
-datasets>=2.19,<4
+datasets>=2.15,<4
 numpy>=1.26,<3
 scipy>=1.11,<2
 sentencepiece>=0.1.99

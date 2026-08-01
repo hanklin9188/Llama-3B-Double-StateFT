@@ -3,7 +3,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 checkpoints/
-datasets/
+/datasets
 results/
 *.log
 *.pt
