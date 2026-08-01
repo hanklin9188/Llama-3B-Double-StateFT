@@ -177,10 +177,10 @@ class EvalIDIIRecorderCallback(TrainerCallback):
             if hs_lists is None:
                 hs_lists = [[] for _ in range(len(hidden_states))]
 
-            # 在 _collect_layer_last_token_reps() 的迴圈內，拿到 tokenizer eos_id 後用它：
-            eos_id = getattr(self.trainer.tokenizer, "eos_token_id", None)
+            processor = self.trainer.processing_class
+            eos_id = getattr(processor, "eos_token_id", None)
             if eos_id is None:
-                last_idx = _last_token_index_from_mask(attention_mask)
+                last_idx = attention_mask.long().sum(dim=1) - 1
             else:
                 last_idx = _last_non_eos_index(input_ids, attention_mask, eos_id)
             for li, h in enumerate(hidden_states):
