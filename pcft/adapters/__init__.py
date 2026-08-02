@@ -1,3 +1,3 @@
-from .control import ControlLoRA
+from .control import ControlLoRA, LowRankControl
 
-__all__ = ["ControlLoRA"]
+__all__ = ["ControlLoRA", "LowRankControl"]

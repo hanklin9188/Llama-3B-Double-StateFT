@@ -1,101 +1,102 @@
-# Llama 3B Double State-FT
+# Llama 3B ID-DR StateFT
 
-Parameter-efficient finetuning for Llama 3.2 3B with two parallel low-rank
-control branches per decoder layer and intrinsic-dimension-guided rank allocation.
+This repository implements branch-specific dynamic-rank Double StateFT for
+`meta-llama/Llama-3.2-3B`. The Llama backbone is frozen. Every decoder layer has
+an independent attention residual control and MLP residual control; a fixed
+global rank budget is redistributed using calibration-loss sensitivity and an
+uncertainty-aware intrinsic-dimension prior.
 
-完整的架構、公式、rank allocator 與輸出說明請見 [DESIGN.md](DESIGN.md)。
-
-## Design
-
-The pretrained Llama parameters remain frozen. Each decoder layer adds one
-control to the attention residual and another to the MLP residual:
-
-```text
-h = x + Attention(LN(x)) + Control_attn(x)
-y = h + MLP(LN(h))       + Control_mlp(h)
-
-Control(x) = alpha * B(A(dropout(x)))
-```
-
-Both controls use the same active rank for a layer. During validation, the
-trainer measures layer-wise intrinsic dimension, information imbalance,
-matrix-based entropy, gradient energy, evaluation loss, and effective rank.
-After warmup, these signals redistribute a fixed rank budget across layers.
-
-`rank_max` controls allocated parameter capacity, while `initial_rank` controls
-the initial active capacity. This separation allows a layer to grow above its
-initial rank while another layer gives rank back. The budget is fixed **per
-branch**, so Double Control has twice that active budget across its two branches.
+完整架構、模組對照、輸出格式與執行方式見 [IMPLEMENTATION.md](IMPLEMENTATION.md)。
 
 ## Setup
 
 ```bash
-conda create -n llama python=3.12
+cd /home/hank/StateFT/Llama-3B-Double-StateFT
 conda activate llama
 python -m pip install -r requirements.txt
 export HF_TOKEN=your_huggingface_token
 ```
 
-Always use `python -m pip` so package installation targets the currently active
-Python environment. If the environment is already prepared, installation can be
-skipped.
+不要使用系統 `pip`；`python -m pip` 會安裝到目前啟用的 conda environment，
+可避開 Debian PEP 668 `externally-managed-environment` 錯誤。
 
-Access to `meta-llama/Llama-3.2-3B` must be approved on Hugging Face.
+## Run
 
-Organize the external datasets without committing them:
-
-```text
-datasets/
-├── commonsense_170k.json
-├── boolq/test.json
-├── piqa/test.json
-├── social_i_qa/test.json
-├── hellaswag/test.json
-├── winogrande/test.json
-├── ARC-Challenge/test.json
-├── ARC-Easy/test.json
-└── openbookqa/test.json
-```
-
-The data format follows the commonsense dataset from
-[LLM-Adapters](https://github.com/AGI-Edgerunners/LLM-Adapters).
-
-## Train And Evaluate
+完整訓練、compact export、八項評估與分析：
 
 ```bash
-python train_and_eval_3b.py
+./run_full_pipeline.sh
 ```
 
-Useful options:
+只訓練主方法：
 
 ```bash
-# Check configuration without loading a model
-python train_and_eval_3b.py --dry-run
-
-# Train only
-python train_and_eval_3b.py --skip-eval
-
-# Evaluate an existing adapter
-python train_and_eval_3b.py --skip-train \
-  --output-dir checkpoints/llama-3.2-3b-double
-
-# Change adaptive-rank capacity
-python train_and_eval_3b.py \
-  --rank-min 8 \
-  --initial-rank 64 \
-  --rank-max 128
+python train_id_dr_3b.py \
+  --allocation-method id_exchange \
+  --output-dir checkpoints/llama-3.2-3b-id-dr-stateft
 ```
 
-Checkpoints contain `control_state.pt` and `control_config.json`. Geometry and
-rank histories are written below `checkpoints/.../metrics/`; final benchmark
-accuracy is written to `evaluation.csv` in the adapter directory.
+只評估既有 compact adapter：
+
+```bash
+python evaluate_3b.py \
+  --output-dir checkpoints/llama-3.2-3b-id-dr-stateft
+```
+
+`datasets` 預設需包含 `commonsense_170k.json` 與八個 benchmark 的
+`<dataset>/test.json`。Checkpoint 只保存 Control 權重，不複製 3B frozen base。
+
+## Experiment Figures
+
+The plotted metrics are generated with `plot_experiment.py`. Each raster figure
+also has a vector PDF for papers and presentations.
+
+### Validation Loss
+
+[PDF](figures/id-dr-main/01_validation_loss.pdf)
+
+![Validation loss](figures/id-dr-main/01_validation_loss.png)
+
+### Branch Geometry
+
+[PDF](figures/id-dr-main/02_branch_geometry.pdf)
+
+![Branch geometry](figures/id-dr-main/02_branch_geometry.png)
+
+### Capacity Utilization
+
+[PDF](figures/id-dr-main/03_capacity_utilization.pdf)
+
+![Capacity utilization](figures/id-dr-main/03_capacity_utilization.png)
+
+### Attention Rank Trajectory
+
+[PDF](figures/id-dr-main/04_attn_rank_heatmap.pdf)
+
+![Attention rank heatmap](figures/id-dr-main/04_attn_rank_heatmap.png)
+
+### MLP Rank Trajectory
+
+[PDF](figures/id-dr-main/05_mlp_rank_heatmap.pdf)
+
+![MLP rank heatmap](figures/id-dr-main/05_mlp_rank_heatmap.png)
+
+### Allocation Overhead
+
+[PDF](figures/id-dr-main/06_allocation_overhead.pdf)
+
+![Allocation overhead](figures/id-dr-main/06_allocation_overhead.png)
+
+## Tests
+
+```bash
+conda run -n llama python -m unittest discover -v
+```
 
 ## Scope
 
-This repository intentionally supports only Llama 3B Double Control. It excludes
-the historical 7B/8B entrypoints, LoRA/DoRA/hybrid variants, plotting notebooks,
-generated figures, model checkpoints, and datasets from the original research
-workspace.
+The implementation is 3B-only. Historical 7B/8B, LoRA, DoRA, and unrelated
+experiment code are intentionally excluded.
 
 ## License
 

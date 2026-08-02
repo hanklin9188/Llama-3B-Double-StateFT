@@ -1,4 +1,6 @@
-from ..common_imports import *
+import os
+
+
 def normalize_repo_id(repo: str) -> str:
     repo = str(repo).strip().strip("'\"")
     if os.path.isdir(repo):
