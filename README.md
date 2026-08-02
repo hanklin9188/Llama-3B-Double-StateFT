@@ -46,6 +46,47 @@ python evaluate_3b.py \
 `datasets` 預設需包含 `commonsense_170k.json` 與八個 benchmark 的
 `<dataset>/test.json`。Checkpoint 只保存 Control 權重，不複製 3B frozen base。
 
+## Experiment Figures
+
+The plotted metrics are generated with `plot_experiment.py`. Each raster figure
+also has a vector PDF for papers and presentations.
+
+### Validation Loss
+
+[PDF](figures/id-dr-main/01_validation_loss.pdf)
+
+![Validation loss](figures/id-dr-main/01_validation_loss.png)
+
+### Branch Geometry
+
+[PDF](figures/id-dr-main/02_branch_geometry.pdf)
+
+![Branch geometry](figures/id-dr-main/02_branch_geometry.png)
+
+### Capacity Utilization
+
+[PDF](figures/id-dr-main/03_capacity_utilization.pdf)
+
+![Capacity utilization](figures/id-dr-main/03_capacity_utilization.png)
+
+### Attention Rank Trajectory
+
+[PDF](figures/id-dr-main/04_attn_rank_heatmap.pdf)
+
+![Attention rank heatmap](figures/id-dr-main/04_attn_rank_heatmap.png)
+
+### MLP Rank Trajectory
+
+[PDF](figures/id-dr-main/05_mlp_rank_heatmap.pdf)
+
+![MLP rank heatmap](figures/id-dr-main/05_mlp_rank_heatmap.png)
+
+### Allocation Overhead
+
+[PDF](figures/id-dr-main/06_allocation_overhead.pdf)
+
+![Allocation overhead](figures/id-dr-main/06_allocation_overhead.png)
+
 ## Tests
 
 ```bash
