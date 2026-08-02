@@ -281,10 +281,168 @@ def plot(metrics_dir, output_prefix):
     return png_path, pdf_path
 
 
+def save_single(figure, output_dir, name):
+    output_dir = Path(output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    png_path = output_dir / f"{name}.png"
+    pdf_path = output_dir / f"{name}.pdf"
+    figure.savefig(png_path, dpi=240, bbox_inches="tight")
+    figure.savefig(pdf_path, bbox_inches="tight")
+    plt.close(figure)
+    return png_path, pdf_path
+
+
+def single_figure(title, width=8.8, height=5.8):
+    figure, axis = plt.subplots(figsize=(width, height), constrained_layout=True)
+    figure.suptitle(title, fontsize=16, fontweight="bold", color=INK)
+    return figure, axis
+
+
+def plot_separate(metrics_dir, output_dir):
+    metrics_dir = Path(metrics_dir).resolve()
+    adapter_dir = metrics_dir.parent
+    geometry = read_csv(metrics_dir / "branch_geometry_all.csv")
+    capacity = read_csv(metrics_dir / "branch_capacity_all.csv")
+    rank_rows = read_csv(metrics_dir / "rank_all.csv")
+    runtime = read_csv(metrics_dir / "runtime_overhead.csv")
+    trainer_state = latest_trainer_state(adapter_dir)
+    outputs = []
+
+    plt.rcParams.update(
+        {
+            "font.family": "DejaVu Sans",
+            "axes.titleweight": "bold",
+            "axes.titlesize": 12,
+            "axes.labelsize": 10,
+            "figure.facecolor": PAPER,
+            "savefig.facecolor": PAPER,
+        }
+    )
+
+    figure, axis = single_figure("Validation Loss During ID-DR StateFT")
+    style_axis(axis)
+    if trainer_state:
+        evaluations = [row for row in trainer_state["log_history"] if "eval_loss" in row]
+        steps = [int(row["step"]) for row in evaluations]
+        losses = [float(row["eval_loss"]) for row in evaluations]
+        axis.plot(steps, losses, color=RED, linewidth=2.5)
+        best_index = int(np.argmin(losses))
+        axis.scatter(steps[best_index], losses[best_index], color=INK, s=48, zorder=4)
+        axis.annotate(
+            f"Best = {losses[best_index]:.5f} at step {steps[best_index]}",
+            (steps[best_index], losses[best_index]),
+            xytext=(-175, 25),
+            textcoords="offset points",
+            fontsize=9,
+            arrowprops={"arrowstyle": "->", "color": INK, "lw": 0.9},
+        )
+    axis.set_xlabel("Training step")
+    axis.set_ylabel("Causal-LM validation loss")
+    outputs.append(save_single(figure, output_dir, "01_validation_loss"))
+
+    figure, axis = single_figure("Branch Representation Geometry")
+    style_axis(axis)
+    input_steps, input_id = median_by_step(geometry, "id_input_lcb")
+    output_steps, output_id = median_by_step(geometry, "id_output_median")
+    energy_steps, output_energy = median_by_step(geometry, "output_energy")
+    axis.plot(input_steps, input_id, color=BLUE, linewidth=2.4, marker="o", ms=3.5, label="Input ID LCB")
+    axis.plot(output_steps, output_id, color=TEAL, linewidth=2.4, marker="o", ms=3.5, label="Output ID")
+    axis.set_xlabel("Allocation step")
+    axis.set_ylabel("Median intrinsic dimension")
+    second = axis.twinx()
+    second.plot(
+        energy_steps,
+        np.asarray(output_energy) * 1000,
+        color=GOLD,
+        linewidth=2,
+        linestyle="--",
+        label="Output energy x1000",
+    )
+    second.set_ylabel("Median output RMS x1000", color=GOLD)
+    second.tick_params(axis="y", colors=GOLD)
+    second.spines["top"].set_visible(False)
+    second.spines["right"].set_color(GOLD)
+    lines = axis.lines + second.lines
+    axis.legend(lines, [line.get_label() for line in lines], frameon=False, loc="best")
+    outputs.append(save_single(figure, output_dir, "02_branch_geometry"))
+
+    figure, axis = single_figure("Control Capacity Utilization")
+    style_axis(axis)
+    effective_steps, effective_rank = median_by_step(capacity, "effective_rank")
+    saturation_steps, saturation = median_by_step(capacity, "parameter_rank_saturation")
+    axis.plot(effective_steps, effective_rank, color=RED, linewidth=2.5, marker="o", ms=3.5)
+    axis.axhline(64, color=INK, linewidth=1.2, linestyle=":", label="Initial active rank = 64")
+    axis.set_xlabel("Allocation step")
+    axis.set_ylabel("Median effective rank", color=RED)
+    axis.tick_params(axis="y", colors=RED)
+    second = axis.twinx()
+    second.plot(saturation_steps, np.asarray(saturation) * 100, color=TEAL, linewidth=2.3, linestyle="--")
+    second.set_ylabel("Median parameter saturation (%)", color=TEAL)
+    second.tick_params(axis="y", colors=TEAL)
+    second.set_ylim(0, 100)
+    second.spines["top"].set_visible(False)
+    second.spines["right"].set_color(TEAL)
+    axis.legend(frameon=False, loc="upper left")
+    outputs.append(save_single(figure, output_dir, "03_capacity_utilization"))
+
+    event_steps, rank_maps = rank_matrices(rank_rows, runtime)
+    heatmap_norm = TwoSlopeNorm(vmin=32, vcenter=64, vmax=128)
+    for index, branch in enumerate(("attn", "mlp"), start=4):
+        figure, axis = single_figure(
+            f"{branch.upper()} Branch-Rank Trajectory", width=10.5, height=6.4
+        )
+        image = axis.imshow(
+            rank_maps[branch],
+            aspect="auto",
+            origin="lower",
+            interpolation="nearest",
+            cmap="RdYlBu_r",
+            norm=heatmap_norm,
+        )
+        tick_indices = np.linspace(0, len(event_steps) - 1, 9, dtype=int)
+        axis.set_xticks(tick_indices, [str(event_steps[position]) for position in tick_indices])
+        axis.set_yticks(range(28))
+        axis.set_xlabel("Allocation step")
+        axis.set_ylabel("Decoder layer")
+        axis.tick_params(labelsize=8, colors=INK)
+        colorbar = figure.colorbar(image, ax=axis, shrink=0.9, pad=0.025)
+        colorbar.set_label("Active rank")
+        outputs.append(save_single(figure, output_dir, f"{index:02d}_{branch}_rank_heatmap"))
+
+    figure, axis = single_figure("Rank-Exchange Decisions and Allocator Cost")
+    style_axis(axis)
+    allocation_steps = [int(row["step"]) for row in runtime]
+    accepted = [int(row["accepted_transfers"]) for row in runtime]
+    overhead_minutes = [float(row["wall_time"]) / 60 for row in runtime]
+    axis.bar(
+        allocation_steps,
+        accepted,
+        width=420,
+        color=[TEAL if value else GRID for value in accepted],
+        edgecolor=INK,
+        linewidth=0.4,
+        label="Accepted transfers",
+    )
+    axis.set_xlabel("Allocation step")
+    axis.set_ylabel("Accepted transfers")
+    axis.set_ylim(0, max(accepted) + 1)
+    second = axis.twinx()
+    second.plot(allocation_steps, overhead_minutes, color=RED, linewidth=2, marker="o", ms=3)
+    second.set_ylabel("Allocator wall time (minutes)", color=RED)
+    second.tick_params(axis="y", colors=RED)
+    second.spines["top"].set_visible(False)
+    second.spines["right"].set_color(RED)
+    axis.legend(frameon=False, loc="upper right")
+    outputs.append(save_single(figure, output_dir, "06_allocation_overhead"))
+    return outputs
+
+
 def main():
     parser = argparse.ArgumentParser(description="Plot ID-DR StateFT experiment metrics")
     parser.add_argument("--metrics-dir", required=True)
     parser.add_argument("--output-prefix")
+    parser.add_argument("--output-dir")
+    parser.add_argument("--mode", choices=["separate", "overview", "both"], default="separate")
     args = parser.parse_args()
     metrics_dir = Path(args.metrics_dir).expanduser().resolve()
     output_prefix = (
@@ -292,9 +450,19 @@ def main():
         if args.output_prefix
         else metrics_dir / "figures" / "id_dr_experiment_overview"
     )
-    png_path, pdf_path = plot(metrics_dir, output_prefix)
-    print(f"PNG: {png_path}")
-    print(f"PDF: {pdf_path}")
+    if args.mode in {"overview", "both"}:
+        png_path, pdf_path = plot(metrics_dir, output_prefix)
+        print(f"Overview PNG: {png_path}")
+        print(f"Overview PDF: {pdf_path}")
+    if args.mode in {"separate", "both"}:
+        output_dir = (
+            Path(args.output_dir).expanduser().resolve()
+            if args.output_dir
+            else metrics_dir / "figures" / "separate"
+        )
+        for png_path, pdf_path in plot_separate(metrics_dir, output_dir):
+            print(f"PNG: {png_path}")
+            print(f"PDF: {pdf_path}")
 
 
 if __name__ == "__main__":
