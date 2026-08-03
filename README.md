@@ -1,4 +1,4 @@
-# Llama 3B Double State-FT
+# Llama 3.2 3B intrinsic rank optimization for State-FT
 
 Parameter-efficient finetuning for Llama 3.2 3B with two parallel low-rank
 control branches per decoder layer and intrinsic-dimension-guided rank allocation.
