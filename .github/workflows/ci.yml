@@ -30,7 +30,7 @@ jobs:
           python -m pip install "numpy>=1.26,<3" "torch>=2.1" "transformers>=4.45,<5"
 
       - name: Run unit and tiny-Llama integration tests
-        run: python -m unittest discover -v
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
 
       - name: Compile Python sources
         run: python -m compileall -q pcft train_and_eval_3b.py
