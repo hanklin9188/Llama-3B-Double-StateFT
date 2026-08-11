@@ -54,8 +54,10 @@ Read [`DESIGN.md`](DESIGN.md) for the metric definitions, allocator details, art
 The public test suite does not download Llama-3.2-3B. It constructs a tiny `LlamaForCausalLM` from configuration and checks the reusable engineering contracts:
 
 ```bash
-python -m unittest discover -v
+python -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+The explicit start directory and pattern keep discovery stable across supported Python versions.
 
 Coverage includes:
 
@@ -178,7 +180,7 @@ tests/                  weight-free engineering tests
 
 1. Read the architecture above and [`DESIGN.md`](DESIGN.md).
 2. Inspect `pcft/adapters/control.py` and `pcft/wrapping/wrap.py`.
-3. Run `python -m unittest discover -v`.
+3. Run `python -m unittest discover -s tests -p 'test_*.py' -v`.
 4. Inspect `pcft/metrics/adaptive_rank.py`.
 5. Read the claim boundaries in [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
