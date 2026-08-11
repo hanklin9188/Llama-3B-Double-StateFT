@@ -9,11 +9,11 @@ python -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install "numpy>=1.26,<3" "torch>=2.1" "transformers>=4.45,<5"
-python -m unittest discover -v
+python -m unittest discover -s tests -p 'test_*.py' -v
 python -m compileall -q pcft train_and_eval_3b.py
 ```
 
-This path verifies the code contracts without model or dataset downloads.
+The explicit start directory and pattern keep test discovery stable across supported Python versions. This path verifies the code contracts without model or dataset downloads.
 
 ## 2. Full environment
 
