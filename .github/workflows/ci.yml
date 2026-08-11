@@ -1,0 +1,36 @@
+name: Validate StateFT
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  engineering-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install weight-free test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "numpy>=1.26,<3" "torch>=2.1" "transformers>=4.45,<5"
+
+      - name: Run unit and tiny-Llama integration tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Compile Python sources
+        run: python -m compileall -q pcft train_and_eval_3b.py
